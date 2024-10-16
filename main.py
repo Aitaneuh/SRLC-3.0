@@ -52,3 +52,7 @@ async def on_member_join(member):
     if role is not None and role not in member.roles:
         # Ajouter le rôle au membre
         await member.add_roles(role)
+
+#-------------------------------------------------------------------------------------------------------------------------
+
+bot.run(TOKEN)
