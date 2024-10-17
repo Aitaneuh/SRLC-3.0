@@ -144,7 +144,7 @@ async def queue(ctx):
     game_id = await get_game_by_user(ctx.author.id)
 
     if game_id != 0:
-        ctx.send("You are already in a queue")
+        await ctx.send("You are already in a queue.")
         return
 
     if ctx.channel.id == 1296464211680952401: #Global
@@ -160,7 +160,7 @@ async def queue(ctx):
 
     count = await count_queued_game_by_rank(rank)
 
-    if count == "0":
+    if count == 0:
         await create_game(rank)
 
         game_id = await get_queued_game_id_by_rank(rank)
@@ -183,7 +183,7 @@ async def queue(ctx):
         elif player_count == 5:
             guild = ctx.guild
             last_chance_role = discord.utils.get(guild.roles, id=1296514205947531344)
-            await ctx.send(f"{player_count}/6 | {ctx.author.mention} has been added to the Rank {rank} queue. {start_queue_role.mention}")
+            await ctx.send(f"{player_count}/6 | {ctx.author.mention} has been added to the Rank {rank} queue. {last_chance_role.mention}")
         else:
             await ctx.send(f"{player_count}/6 | {ctx.author.mention} has been added to the Rank {rank} queue.")
             await start_game(game_id)
@@ -214,6 +214,12 @@ async def queue(ctx):
 
 @bot.command(name="leave-queue", aliases=["l", "leave"])
 async def leave_queue(ctx):
+    game_id = await get_game_by_user(ctx.author.id)
+
+    if game_id == "0":
+        await ctx.send("You are not in a queue.")
+        return
+
     if ctx.channel.id == 1296464211680952401: #Global
         rank = "global"
     elif ctx.channel.id == 1296512459133419531: #S
@@ -224,6 +230,21 @@ async def leave_queue(ctx):
         rank = "A"
     elif ctx.channel.id == 1296512487478530100: #B
         rank = "B"
+
+    count = await count_queued_game_by_rank(rank)
+
+    if count == 1:
+        await delete_game(game_id)
+
+        await remove_from_queue(ctx.author.id)
+
+        await ctx.send(f"The queue has been canceled")
+    else:
+        await remove_from_queue(ctx.author.id)
+
+        player_count = await count_player_by_game(game_id)
+
+        await ctx.send(f"{player_count}/6 | {ctx.author.mention} has been removed from the Rank {rank} queue.")
 
 
 #-------------------------------------------------------------------------------------------------------------------------
