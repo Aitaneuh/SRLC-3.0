@@ -19,7 +19,7 @@ async def update_user(discord_id, elo, rank):
         await cursor.close()
         await db.commit()
 
-async def user_exist(discord_id):
+async def get_user(discord_id):
     async with aiosqlite.connect('Main.db') as db:
          async with db.execute("SELECT * FROM users WHERE discord_id = ?", (discord_id,)) as cursor:
             user = await cursor.fetchone()

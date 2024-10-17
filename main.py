@@ -100,7 +100,7 @@ async def set_rank(ctx, member: discord.Member, rank: str):
         await ctx.send(f"The role '{role_name}' does not exist in this server.")
 
 
-    user = await user_exist(discord_id)
+    user = await get_user(discord_id)
 
     if user is not None:
         await update_user(discord_id, elo, rank)
@@ -109,9 +109,34 @@ async def set_rank(ctx, member: discord.Member, rank: str):
         await create_user(discord_id, elo, rank)
         await ctx.send(f"Rank of {member.mention} was set to **{rank}** with an elo of **{elo}**.")
 
-    
+#-------------------------------------------------------------------------------------------------------------------------
 
-    
+@bot.command(name="stats")
+async def stats(ctx, member: discord.Member = None):
+    if member is None:
+        member = ctx.author
+
+    user = await get_user(str(member.id))
+
+    if user is not None:
+        elo = user[1]
+        rank = user[2]
+        wins = user[3]
+        losses = user[4]
+        if (losses == 0 and wins > 0):
+            wl = round(wins / (losses + 1), 5)
+            wg= round(wins / (wins + losses), 5)
+        elif (losses == 0 and wins == 0):
+            wl = "No game played"
+            wg = "No game played"
+        else:
+            wl = round(wins / losses, 5)
+            wg = round(wins / (wins + losses), 5)
+        await ctx.send(f"**{member.display_name}** has an ELO of **{elo}** and a rank of **{rank}**. He has **{wins}** wins and **{losses}** losses for a W/G of **{wg}** and a W/L of **{wl}**")
+    else:
+        await ctx.send(f"No stats found for **{member.display_name}**.")
+
+
 #-------------------------------------------------------------------------------------------------------------------------
 
 
