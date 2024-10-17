@@ -1,5 +1,6 @@
 import discord
 import aiosqlite
+import random
 import schedule
 import asyncio
 from discord.ext import commands
@@ -44,7 +45,6 @@ async def on_ready():
 async def on_member_join(member):
 
     guild = member.guild
-    
 
     role = discord.utils.get(guild.roles, id=1296237890329776129)
 
@@ -139,5 +139,93 @@ async def stats(ctx, member: discord.Member = None):
 
 #-------------------------------------------------------------------------------------------------------------------------
 
+@bot.command(name="queue", aliases=["q"])
+async def queue(ctx):
+    game_id = await get_game_by_user(ctx.author.id)
+
+    if game_id != 0:
+        ctx.send("You are already in a queue")
+        return
+
+    if ctx.channel.id == 1296464211680952401: #Global
+        rank = "global"
+    elif ctx.channel.id == 1296512459133419531: #S
+        rank = "S"
+    elif ctx.channel.id == 1296512468977188864: #X
+        rank = "X"
+    elif ctx.channel.id == 1296512479349706782: #A
+        rank = "A"
+    elif ctx.channel.id == 1296512487478530100: #B
+        rank = "B"
+
+    count = await count_queued_game_by_rank(rank)
+
+    if count == "0":
+        await create_game(rank)
+
+        game_id = await get_queued_game_id_by_rank(rank)
+
+        await add_to_queue(ctx.author.id, game_id)
+
+        guild = ctx.guild
+        start_queue_role = discord.utils.get(guild.roles, id=1296514152705036389)
+
+        await ctx.send(f"1/6 | {ctx.author.mention} has been added to the Rank {rank} queue. {start_queue_role.mention}")
+    else:
+        game_id = await get_queued_game_id_by_rank(rank)
+
+        await add_to_queue(ctx.author.id, game_id)
+
+        player_count = await count_player_by_game(game_id)
+        
+        if player_count < 5:
+            await ctx.send(f"{player_count}/6 | {ctx.author.mention} has been added to the Rank {rank} queue.")
+        elif player_count == 5:
+            guild = ctx.guild
+            last_chance_role = discord.utils.get(guild.roles, id=1296514205947531344)
+            await ctx.send(f"{player_count}/6 | {ctx.author.mention} has been added to the Rank {rank} queue. {start_queue_role.mention}")
+        else:
+            await ctx.send(f"{player_count}/6 | {ctx.author.mention} has been added to the Rank {rank} queue.")
+            await start_game(game_id)
+
+            players = await get_players_by_game(game_id)
+
+            host_id = random.choice(players)
+            await add_host_id(host_id, game_id)
+
+            random.shuffle(players)
+
+            team_blue = players[:3]
+            for player_id in team_blue:
+                await update_player_team(player_id, "blue")
+
+            team_orange = players[3:]
+            for player_id in team_orange:
+                await update_player_team(player_id, "orange")
+
+            team_blue_mentions = ", ".join([f"<@{player_id}>" for player_id in team_blue])
+            team_orange_mentions = ", ".join([f"<@{player_id}>" for player_id in team_orange])
+            
+            await ctx.send(f"# Game {game_id} has been created\n\n## Team Blue\n\n{team_blue_mentions}\n\n## Team Orange\n\n{team_orange_mentions}")
+
+
+
+#-------------------------------------------------------------------------------------------------------------------------
+
+@bot.command(name="leave-queue", aliases=["l", "leave"])
+async def leave_queue(ctx):
+    if ctx.channel.id == 1296464211680952401: #Global
+        rank = "global"
+    elif ctx.channel.id == 1296512459133419531: #S
+        rank = "S"
+    elif ctx.channel.id == 1296512468977188864: #X
+        rank = "X"
+    elif ctx.channel.id == 1296512479349706782: #A
+        rank = "A"
+    elif ctx.channel.id == 1296512487478530100: #B
+        rank = "B"
+
+
+#-------------------------------------------------------------------------------------------------------------------------
 
 bot.run(TOKEN)
