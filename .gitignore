@@ -1,5 +1,5 @@
-# Fichier .env
 .env
 
-# Dossier __pycache__
 /__pycache__/
+
+main.db
