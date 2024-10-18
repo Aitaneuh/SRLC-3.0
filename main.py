@@ -199,8 +199,45 @@ async def queue(ctx):
             team_blue_mentions = ", ".join([f"<@{player_id}>" for player_id in team_blue])
             team_orange_mentions = ", ".join([f"<@{player_id}>" for player_id in team_orange])
             
-            await ctx.send(f"# Game {game_id} has been created\n\n## Team Blue\n\n{team_blue_mentions}\n\n## Team Orange\n\n{team_orange_mentions}")
+            await ctx.send(f"# Game {game_id} has been created\n\n## Team Blue\n\n{team_blue_mentions}\n\n## Team Orange\n\n{team_orange_mentions}\n\n# You can now wait until every one is here in the Lobby #{game_id}")
 
+            guild = ctx.guild
+            category = ctx.channel.category
+
+            lobby_channel = await guild.create_voice_channel(
+                name=f"Lobby #{game_id}", 
+                category=category
+            )
+            team_blue_channel = await guild.create_voice_channel(
+                name=f"Team Blue #{game_id}", 
+                category=category
+            )
+
+            team_orange_channel = await guild.create_voice_channel(
+                name=f"Team Orange #{game_id}", 
+                category=category
+            )
+
+            overwrite_deny = discord.PermissionOverwrite()
+            overwrite_deny.connect = False 
+
+            overwrite_allow = discord.PermissionOverwrite()
+            overwrite_allow.connect = True 
+
+            await lobby_channel.set_permissions(guild.default_role, overwrite=overwrite_deny)
+            for player in players:
+                user = guild.get_member(player.id)
+                await lobby_channel.set_permissions(user, overwrite=overwrite_allow)
+
+            await team_blue_channel.set_permissions(guild.default_role, overwrite=overwrite_deny)
+            for member in team_blue:
+                user = guild.get_member(member.id)
+                await team_blue_channel.set_permissions(user, overwrite=overwrite_allow)
+
+            await team_orange_channel.set_permissions(guild.default_role, overwrite=overwrite_deny)
+            for member in team_orange:
+                user = guild.get_member(member.id)
+                await team_orange_channel.set_permissions(user, overwrite=overwrite_allow)
 
 
 #-------------------------------------------------------------------------------------------------------------------------
@@ -211,6 +248,12 @@ async def leave_queue(ctx):
 
     if game_id == "0":
         await ctx.send("You are not in a queue.")
+        return
+    
+    user = await get_user(ctx.author.id)
+
+    if user[5] == "ingame":
+        await ctx.send("You can't leave a started game.")
         return
 
     if ctx.channel.id == 1296464211680952401: #Global
@@ -276,6 +319,92 @@ async def queue_status(ctx):
     await ctx.send(f"# Players currently in queue for rank {rank}\n\n{player_list}")
 
 #-------------------------------------------------------------------------------------------------------------------------
+
+@bot.command(name="report-score", aliases=["report", "r"])
+async def report_score(ctx, win_color: str, member: discord.Member = None):
+    if member is None:
+        member = ctx.author
+
+    if member is not None and not ctx.author.guild_permissions.administrator:
+        await ctx.send("Only admins can report anothere person game.")
+        return
+
+    game_id = await get_game_by_user(ctx.author.id)
+
+    if game_id == "0":
+        await ctx.send("You are not in a game.")
+        return
+    
+    host_id = await get_host_id_by_game_id(game_id)
+
+    if host_id is None:
+        await ctx.send("You are not in a game.")
+        return
+
+    if ctx.author.id != host_id:
+        await ctx.send("Only the host can report the result.")
+        return
+    
+    blue_player_ids = await get_blue_team_players_by_game_id(game_id)
+
+    orange_player_ids = await get_orange_team_players_by_game_id(game_id)
+
+    if win_color == "blue":
+        winning_team_ids = blue_player_ids
+        losing_team_ids = orange_player_ids
+    elif win_color == "orange":
+        winning_team_ids = orange_player_ids
+        losing_team_ids = blue_player_ids
+    else:
+        await ctx.send("The team entered has to be `blue` or `orange`.")
+        return
+    
+    for player_id in winning_team_ids:
+        await add_a_win(player_id)
+
+    for player_id in winning_team_ids:
+        await add_a_lose(player_id)
+    
+    await calculate_new_elo(winning_team_ids, losing_team_ids)
+
+    player_ids = await get_players_by_game(game_id)
+
+    for player_id in player_ids:
+        await leave_a_game(player_id)
+
+    await delete_game(game_id)
+
+
+
+async def calculate_new_elo(winning_team_ids, losing_team_ids):
+
+    winning_elo = []
+    losing_elo = []
+
+    k_factor = 30
+
+    for player_id in winning_team_ids:
+        elo = await get_player_elo(player_id)  
+        winning_elo.append((player_id, elo))
+
+    for player_id in losing_team_ids:
+        elo = await get_player_elo(player_id) 
+        losing_elo.append((player_id, elo))
+
+    
+    for player_id, old_elo in winning_elo:
+        expected_score = 1 / (1 + 10 ** ((sum(losing[1] for losing in losing_elo) / len(losing_elo) - old_elo) / 400))
+        new_elo = old_elo + k_factor * (1 - expected_score)
+        await update_player_elo(player_id, new_elo) 
+
+    
+    for player_id, old_elo in losing_elo:
+        expected_score = 1 / (1 + 10 ** ((sum(winning[1] for winning in winning_elo) / len(winning_elo) - old_elo) / 400))
+        new_elo = old_elo + k_factor * (0 - expected_score)
+        await update_player_elo(player_id, new_elo)
+
+#-------------------------------------------------------------------------------------------------------------------------
+
 
 
 bot.run(TOKEN)

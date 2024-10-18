@@ -69,7 +69,7 @@ async def count_player_by_game(game_id):
 async def start_game(game_id):
     async with aiosqlite.connect('Main.db') as db:
         cursor = await db.execute("UPDATE games SET status = ? WHERE game_id = ?", ("started", game_id))
-        cursor = await db.execute("UPDATE users SET status = ? WHERE game_id = ?", ("started", game_id))
+        cursor = await db.execute("UPDATE users SET status = ? WHERE game_id = ?", ("in_game", game_id))
         await cursor.close()
         await db.commit()
 
@@ -105,4 +105,52 @@ async def delete_game(game_id):
     async with aiosqlite.connect('Main.db') as db:
         cursor = await db.execute("DELETE FROM games WHERE game_id = ?", (game_id,))
         await cursor.close()
+        await db.commit()
+
+async def get_host_id_by_game_id(game_id):
+    async with aiosqlite.connect('Main.db') as db:
+        async with db.execute("SELECT host_id FROM games WHERE game_id = ?", (game_id,)) as cursor:
+                result = await cursor.fetchone()
+                if result is not None:
+                    host_id = result[0]  
+                    return host_id
+                else:
+                    return result
+        
+async def get_blue_team_players_by_game_id(game_id):
+    async with aiosqlite.connect('Main.db') as db:
+        async with db.execute("SELECT discord_id FROM users WHERE game_id = ? AND team = blue", (game_id,)) as cursor:
+            players = await cursor.fetchall()
+            return [player[0] for player in players]
+        
+async def get_orange_team_players_by_game_id(game_id):
+    async with aiosqlite.connect('Main.db') as db:
+        async with db.execute("SELECT discord_id FROM users WHERE game_id = ? AND team = blue", (game_id,)) as cursor:
+            players = await cursor.fetchall()
+            return [player[0] for player in players]
+        
+async def get_player_elo(player_id):
+    async with aiosqlite.connect('Main.db') as db:
+        async with db.execute("SELECT elo FROM users WHERE discord_id = ?", (player_id,)) as cursor:
+            elo = await cursor.fetchone()
+            return elo[0] if elo else None
+
+async def update_player_elo(player_id, new_elo):
+    async with aiosqlite.connect('Main.db') as db:
+        await db.execute("UPDATE users SET elo = ? WHERE discord_id = ?", (new_elo, player_id))
+        await db.commit()
+
+async def add_a_win(player_id):
+    async with aiosqlite.connect('Main.db') as db:
+        await db.execute("UPDATE users SET wins = wins + 1 WHERE discord_id = ?", (player_id,))
+        await db.commit()
+
+async def add_a_lose(player_id):
+    async with aiosqlite.connect('Main.db') as db:
+        await db.execute("UPDATE users SET losses = losses + 1 WHERE discord_id = ?", (player_id,))
+        await db.commit()
+
+async def leave_a_game(player_id):
+    async with aiosqlite.connect('Main.db') as db:
+        await db.execute("UPDATE users SET status = ? WHERE discord_id = ?", ("inactive", player_id))
         await db.commit()
