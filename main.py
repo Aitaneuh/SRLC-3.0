@@ -31,13 +31,6 @@ async def on_ready():
     await create_tables()
 
     print("Bot is online ! ", "| Name :", bot.user.name, "| ID :", bot.user.id)
-    print("//////////////////////////////////")
-    try:
-        synced = await bot.tree.sync()
-        synced_names = [command.name for command in synced]  
-        print(f"{len(synced)} commands have been synced : {', '.join(synced_names)}")
-    except Exception as e:
-        print(e)
 
 #-------------------------------------------------------------------------------------------------------------------------
 
@@ -231,7 +224,7 @@ async def leave_queue(ctx):
     elif ctx.channel.id == 1296512487478530100: #B
         rank = "B"
 
-    count = await count_queued_game_by_rank(rank)
+    count = await count_player_by_game(game_id)
 
     if count == 1:
         await delete_game(game_id)
@@ -246,7 +239,43 @@ async def leave_queue(ctx):
 
         await ctx.send(f"{player_count}/6 | {ctx.author.mention} has been removed from the Rank {rank} queue.")
 
+#-------------------------------------------------------------------------------------------------------------------------
+
+@bot.command(name="queue-status", aliases=["status", "s"])
+async def queue_status(ctx):
+
+    if ctx.channel.id == 1296464211680952401: #Global
+        rank = "global"
+    elif ctx.channel.id == 1296512459133419531: #S
+        rank = "S"
+    elif ctx.channel.id == 1296512468977188864: #X
+        rank = "X"
+    elif ctx.channel.id == 1296512479349706782: #A
+        rank = "A"
+    elif ctx.channel.id == 1296512487478530100: #B
+        rank = "B"
+
+    game_id = await get_queued_game_id_by_rank(rank)
+
+    count = await count_player_by_game(game_id)
+
+    if count == 0:
+        await ctx.send(f"# The queue for rank {rank} is empty")
+        return
+
+    player_ids = await get_players_by_game(game_id)
+
+    player_names = []
+
+    for player_id in player_ids:
+        user = await bot.fetch_user(player_id)
+        player_names.append(user.display_name)
+
+    player_list = (", ".join(player_names))
+
+    await ctx.send(f"# Players currently in queue for rank {rank}\n\n{player_list}")
 
 #-------------------------------------------------------------------------------------------------------------------------
+
 
 bot.run(TOKEN)

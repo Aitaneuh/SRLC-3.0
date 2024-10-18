@@ -15,7 +15,7 @@ This Discord bot is designed to enhance the gaming experience for players partic
 1. **Clone the Repository**:
    ```bash
    git clone https://github.com/Aitaneuh/SRLC-3.0.git
-   cd srlc-6mans-bot
+   cd SRLC-3.0
    ```
 
 2. **Install Dependencies**:

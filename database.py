@@ -75,7 +75,7 @@ async def start_game(game_id):
 
 async def get_players_by_game(game_id):
     async with aiosqlite.connect('Main.db') as db:
-        async with db.execute("SELECT user_id FROM users WHERE game_id = ?", (game_id,)) as cursor:
+        async with db.execute("SELECT discord_id FROM users WHERE game_id = ?", (game_id,)) as cursor:
             players = await cursor.fetchall()
             return [player[0] for player in players]
         
