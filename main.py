@@ -5,6 +5,7 @@ import schedule
 import asyncio
 from discord.ext import commands
 from discord import app_commands
+from discord.utils import *
 import os
 from dotenv import load_dotenv
 from database import *
@@ -48,7 +49,7 @@ async def on_member_join(member):
 #-------------------------------------------------------------------------------------------------------------------------
 
 @bot.command(name="set-rank")
-async def set_rank(ctx, member: discord.Member, rank: str):
+async def set_rank(ctx, member: discord.Member = None, rank: str = None):
 
     if not ctx.author.guild_permissions.administrator:
         await ctx.send("You are not an admin, so you can't use this command.")
@@ -321,7 +322,9 @@ async def queue_status(ctx):
 #-------------------------------------------------------------------------------------------------------------------------
 
 @bot.command(name="report-score", aliases=["report", "r"])
-async def report_score(ctx, win_color: str, member: discord.Member = None):
+async def report_score(ctx, member: discord.Member = None, win_color: str = None):
+
+    guild = ctx.guild
 
     if member is not None and not ctx.author.guild_permissions.administrator:
         await ctx.send("Only admins can report another person game.")
@@ -373,12 +376,33 @@ async def report_score(ctx, win_color: str, member: discord.Member = None):
     player_ids = await get_players_by_game(game_id)
 
     for player_id in player_ids:
+        await check_rank_change(ctx, player_id)
         await leave_a_game(player_id)
 
     await delete_game(game_id)
 
     await ctx.send(f"the game #{game_id} has been succesfuly reported. {win_color} has won.")
 
+    blue_channel = get(guild.voice_channels, name=f"Team Blue #{game_id}")
+    orange_channel = get(guild.voice_channels, name=f"Team Orange #{game_id}")
+    lobby_channel = get(guild.voice_channels, name=f"Lobby #{game_id}")
+    general_channel = get(guild.voice_channels, id=1297341396348571669)
+
+    for member in blue_channel.members:
+        await member.move_to(lobby_channel)
+
+    for member in orange_channel.members:
+        await member.move_to(lobby_channel)
+
+    await blue_channel.delete()
+    await orange_channel.delete()
+
+    await asyncio.sleep(300)
+
+    for member in lobby_channel.members:
+        await member.move_to(general_channel)
+
+    await lobby_channel.delete()
 
 
 async def calculate_new_elo(winning_team_ids, losing_team_ids):
@@ -407,6 +431,42 @@ async def calculate_new_elo(winning_team_ids, losing_team_ids):
         expected_score = 1 / (1 + 10 ** ((sum(winning[1] for winning in winning_elo) / len(winning_elo) - old_elo) / 400))
         new_elo = old_elo + k_factor * (0 - expected_score)
         await update_player_elo(player_id, new_elo)
+
+
+async def check_rank_change(ctx, player_id):
+
+    guild = ctx.guild
+
+    player_elo = await get_player_elo(player_id)
+
+    if player_elo > 1800:
+        rank = "S"
+    elif player_elo < 1800 and player_elo > 1400:
+        rank = "X"
+    elif player_elo < 1400 and player_elo > 1000:
+        rank = "A"
+    elif player_elo < 1000:
+        rank = "B"
+
+    await update_user(player_id, player_elo, rank)
+
+    member = guild.get_member(player_id)
+
+    roles = {
+        "S": discord.utils.get(guild.roles, id=1296472639577264158),
+        "X": discord.utils.get(guild.roles, id=1296472715997352008),
+        "A": discord.utils.get(guild.roles, id=1296472764273917952),
+        "B": discord.utils.get(guild.roles, id=1296473344757207112)
+    }
+
+    correct_role = roles[rank]
+
+    for role in roles.items():
+        if role in member.roles and role != correct_role:
+            await member.remove_roles(role)
+
+    if correct_role not in member.roles:
+        await member.add_roles(correct_role)
 
 #-------------------------------------------------------------------------------------------------------------------------
 
