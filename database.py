@@ -119,13 +119,13 @@ async def get_host_id_by_game_id(game_id):
         
 async def get_blue_team_players_by_game_id(game_id):
     async with aiosqlite.connect('Main.db') as db:
-        async with db.execute("SELECT discord_id FROM users WHERE game_id = ? AND team = blue", (game_id,)) as cursor:
+        async with db.execute("SELECT discord_id FROM users WHERE game_id = ? AND team = ?", (game_id, "blue")) as cursor:
             players = await cursor.fetchall()
             return [player[0] for player in players]
         
 async def get_orange_team_players_by_game_id(game_id):
     async with aiosqlite.connect('Main.db') as db:
-        async with db.execute("SELECT discord_id FROM users WHERE game_id = ? AND team = blue", (game_id,)) as cursor:
+        async with db.execute("SELECT discord_id FROM users WHERE game_id = ? AND team = ?", (game_id, "orange")) as cursor:
             players = await cursor.fetchall()
             return [player[0] for player in players]
         
@@ -152,5 +152,5 @@ async def add_a_lose(player_id):
 
 async def leave_a_game(player_id):
     async with aiosqlite.connect('Main.db') as db:
-        await db.execute("UPDATE users SET status = ? WHERE discord_id = ?", ("inactive", player_id))
+        await db.execute("UPDATE users SET status = ?, game_id = ?, team = ? WHERE discord_id = ?", ("inactive", "0", None, player_id))
         await db.commit()

@@ -322,20 +322,23 @@ async def queue_status(ctx):
 
 @bot.command(name="report-score", aliases=["report", "r"])
 async def report_score(ctx, win_color: str, member: discord.Member = None):
+
+    if member is not None and not ctx.author.guild_permissions.administrator:
+        await ctx.send("Only admins can report another person game.")
+        return
+
     if member is None:
         member = ctx.author
 
-    if member is not None and not ctx.author.guild_permissions.administrator:
-        await ctx.send("Only admins can report anothere person game.")
-        return
-
-    game_id = await get_game_by_user(ctx.author.id)
+    game_id = await get_game_by_user(member.id)
 
     if game_id == "0":
         await ctx.send("You are not in a game.")
         return
     
     host_id = await get_host_id_by_game_id(game_id)
+
+    host_id = int(host_id)
 
     if host_id is None:
         await ctx.send("You are not in a game.")
@@ -362,7 +365,7 @@ async def report_score(ctx, win_color: str, member: discord.Member = None):
     for player_id in winning_team_ids:
         await add_a_win(player_id)
 
-    for player_id in winning_team_ids:
+    for player_id in losing_team_ids:
         await add_a_lose(player_id)
     
     await calculate_new_elo(winning_team_ids, losing_team_ids)
@@ -373,6 +376,8 @@ async def report_score(ctx, win_color: str, member: discord.Member = None):
         await leave_a_game(player_id)
 
     await delete_game(game_id)
+
+    await ctx.send(f"the game #{game_id} has been succesfuly reported. {win_color} has won.")
 
 
 
