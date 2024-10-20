@@ -154,3 +154,13 @@ async def leave_a_game(player_id):
     async with aiosqlite.connect('Main.db') as db:
         await db.execute("UPDATE users SET status = ?, game_id = ?, team = ? WHERE discord_id = ?", ("inactive", "0", None, player_id))
         await db.commit()
+        
+async def get_rank_by_game_id(game_id):
+    async with aiosqlite.connect('Main.db') as db:
+        async with db.execute("SELECT rank FROM games WHERE game_id = ?", (game_id,)) as cursor:
+                result = await cursor.fetchone()
+                if result is not None:
+                    rank = result[0]  
+                    return rank
+                else:
+                    return result

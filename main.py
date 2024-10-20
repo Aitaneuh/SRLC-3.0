@@ -52,7 +52,7 @@ async def on_member_join(member):
 async def set_rank(ctx, member: discord.Member = None, rank: str = None):
 
     if not ctx.author.guild_permissions.administrator:
-        await ctx.send("You are not an admin, so you can't use this command.")
+        await ctx.send("You are not an admin, only them can use this command.")
         return
 
     if member is None or rank is None:
@@ -370,8 +370,11 @@ async def report_score(ctx, member: discord.Member = None, win_color: str = None
 
     for player_id in losing_team_ids:
         await add_a_lose(player_id)
-    
-    await calculate_new_elo(winning_team_ids, losing_team_ids)
+
+    rank = await get_rank_by_game_id(game_id)
+
+    if rank != "global":
+        await calculate_new_elo(winning_team_ids, losing_team_ids)
 
     player_ids = await get_players_by_game(game_id)
 
@@ -469,6 +472,39 @@ async def check_rank_change(ctx, player_id):
         await member.add_roles(correct_role)
 
 #-------------------------------------------------------------------------------------------------------------------------
+
+@bot.command(name="clear-queue", aliases=["clear", "c"])
+async def clear_queue(ctx):
+    if not ctx.author.guild_permissions.administrator:
+        await ctx.send("You are not an admin, only them can use this command.")
+        return
+    
+    if ctx.channel.id == 1296464211680952401: #Global
+        rank = "global"
+    elif ctx.channel.id == 1296512459133419531: #S
+        rank = "S"
+    elif ctx.channel.id == 1296512468977188864: #X
+        rank = "X"
+    elif ctx.channel.id == 1296512479349706782: #A
+        rank = "A"
+    elif ctx.channel.id == 1296512487478530100: #B
+        rank = "B"
+
+    game_id = await get_queued_game_id_by_rank(rank)
+
+    player_ids = await get_players_by_game(game_id)
+
+    for player_id in player_ids:
+        await leave_a_game(player_id)
+
+    await delete_game(game_id)
+
+    await ctx.send(f"Game #{game_id} has been successfuly cleared.")
+
+
+
+#-------------------------------------------------------------------------------------------------------------------------
+
 
 
 
