@@ -320,14 +320,73 @@ async def queue_status(ctx):
     await ctx.send(f"# Players currently in queue for rank {rank}\n\n{player_list}")
 
 #-------------------------------------------------------------------------------------------------------------------------
+ 
+import discord
+from discord.ext import commands
+from discord.ui import View, Button
+
+class ConfirmReportView(View):
+    def __init__(self, ctx, host_id, game_id, win_color, blue_player_ids, orange_player_ids):
+        super().__init__()
+        self.ctx = ctx
+        self.host_id = host_id
+        self.game_id = game_id
+        self.win_color = win_color
+        self.blue_player_ids = blue_player_ids
+        self.orange_player_ids = orange_player_ids
+
+    @discord.ui.button(label="Confirm", style=discord.ButtonStyle.green)
+    async def confirm(self, interaction: discord.Interaction, button: Button):
+        if interaction.user.id != self.host_id and not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message("You don't have permission to confirm the result.", ephemeral=True)
+            return
+
+        await interaction.response.send_message(f"Game #{self.game_id} reported as {self.win_color} team winning!", ephemeral=False)
+
+        await self.report_game_results()
+
+        self.disable_all_items()
+        await interaction.message.edit(view=self)
+
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.red)
+    async def cancel(self, interaction: discord.Interaction, button: Button):
+        await interaction.response.send_message(f"Game #{self.game_id} report cancelled.", ephemeral=False)
+
+        self.disable_all_items()
+        await interaction.message.edit(view=self)
+
+    async def report_game_results(self):
+        winning_team_ids = self.blue_player_ids if self.win_color == "blue" else self.orange_player_ids
+        losing_team_ids = self.orange_player_ids if self.win_color == "blue" else self.blue_player_ids
+
+        for player_id in winning_team_ids:
+            await add_a_win(player_id)
+
+        for player_id in losing_team_ids:
+            await add_a_lose(player_id)
+
+        rank = await get_rank_by_game_id(self.game_id)
+
+        if rank != "global":
+            await calculate_new_elo(winning_team_ids, losing_team_ids)
+
+        player_ids = await get_players_by_game(self.game_id)
+
+        for player_id in player_ids:
+            await check_rank_change(self.ctx, player_id)
+            await leave_a_game(player_id)
+
+        await delete_game(self.game_id)
+
+        await self.ctx.send(f"the game #{self.game_id} has been successfully reported. {self.win_color} has won.")
+
 
 @bot.command(name="report-score", aliases=["report", "r"])
 async def report_score(ctx, member: discord.Member = None, win_color: str = None):
-
     guild = ctx.guild
 
     if member is not None and not ctx.author.guild_permissions.administrator:
-        await ctx.send("Only admins can report another person game.")
+        await ctx.send("Only admins can report another person's game.")
         return
 
     if member is None:
@@ -338,74 +397,27 @@ async def report_score(ctx, member: discord.Member = None, win_color: str = None
     if game_id == "0":
         await ctx.send("You are not in a game.")
         return
-    
-    host_id = await get_host_id_by_game_id(game_id)
 
-    host_id = int(host_id)
+    host_id = await get_host_id_by_game_id(game_id)
 
     if host_id is None:
         await ctx.send("You are not in a game.")
         return
 
-    if ctx.author.id != host_id:
+    if ctx.author.id != int(host_id):
         await ctx.send("Only the host can report the result.")
         return
-    
-    blue_player_ids = await get_blue_team_players_by_game_id(game_id)
 
+    blue_player_ids = await get_blue_team_players_by_game_id(game_id)
     orange_player_ids = await get_orange_team_players_by_game_id(game_id)
 
-    if win_color == "blue":
-        winning_team_ids = blue_player_ids
-        losing_team_ids = orange_player_ids
-    elif win_color == "orange":
-        winning_team_ids = orange_player_ids
-        losing_team_ids = blue_player_ids
-    else:
+    if win_color not in ["blue", "orange"]:
         await ctx.send("The team entered has to be `blue` or `orange`.")
         return
-    
-    for player_id in winning_team_ids:
-        await add_a_win(player_id)
 
-    for player_id in losing_team_ids:
-        await add_a_lose(player_id)
+    view = ConfirmReportView(ctx, host_id, game_id, win_color, blue_player_ids, orange_player_ids)
+    await ctx.send(f"{ctx.author.mention}, you reported that {win_color} team won the game. do you confirm ?", view=view)
 
-    rank = await get_rank_by_game_id(game_id)
-
-    if rank != "global":
-        await calculate_new_elo(winning_team_ids, losing_team_ids)
-
-    player_ids = await get_players_by_game(game_id)
-
-    for player_id in player_ids:
-        await check_rank_change(ctx, player_id)
-        await leave_a_game(player_id)
-
-    await delete_game(game_id)
-
-    await ctx.send(f"the game #{game_id} has been succesfuly reported. {win_color} has won.")
-
-    blue_channel = get(guild.voice_channels, name=f"Team Blue #{game_id}")
-    orange_channel = get(guild.voice_channels, name=f"Team Orange #{game_id}")
-    lobby_channel = get(guild.voice_channels, name=f"Lobby #{game_id}")
-    general_channel = get(guild.voice_channels, id=1297341396348571669)
-
-    for member in blue_channel.members:
-        await member.move_to(lobby_channel)
-
-    for member in orange_channel.members:
-        await member.move_to(lobby_channel)
-
-    await blue_channel.delete()
-    await orange_channel.delete()
-
-    await asyncio.sleep(300)
-
-    for member in lobby_channel.members:
-        await member.move_to(general_channel)
-
-    await lobby_channel.delete()
 
 
 async def calculate_new_elo(winning_team_ids, losing_team_ids):
