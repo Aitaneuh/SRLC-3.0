@@ -4,6 +4,8 @@ import random
 import schedule
 import asyncio
 from discord.ext import commands
+from discord.ui import View, Button
+from discord.ext import commands
 from discord import app_commands
 from discord.utils import *
 import os
@@ -320,10 +322,8 @@ async def queue_status(ctx):
     await ctx.send(f"# Players currently in queue for rank {rank}\n\n{player_list}")
 
 #-------------------------------------------------------------------------------------------------------------------------
- 
-import discord
-from discord.ext import commands
-from discord.ui import View, Button
+
+
 
 class ConfirmReportView(View):
     def __init__(self, ctx, host_id, game_id, win_color, blue_player_ids, orange_player_ids):
@@ -336,17 +336,38 @@ class ConfirmReportView(View):
         self.orange_player_ids = orange_player_ids
 
     @discord.ui.button(label="Confirm", style=discord.ButtonStyle.green)
-    async def confirm(self, interaction: discord.Interaction, button: Button):
+    async def confirm(ctx, self, interaction: discord.Interaction, button: Button):
         if interaction.user.id != self.host_id and not interaction.user.guild_permissions.administrator:
             await interaction.response.send_message("You don't have permission to confirm the result.", ephemeral=True)
             return
 
-        await interaction.response.send_message(f"Game #{self.game_id} reported as {self.win_color} team winning!", ephemeral=False)
+        await interaction.response.send_message(f"Game #{self.game_id} reported as {self.win_color} team winning !", ephemeral=False)
 
         await self.report_game_results()
 
         self.disable_all_items()
         await interaction.message.edit(view=self)
+
+        game_id = self.game_id
+
+        guild = self.ctx.guild
+
+        blue_channel = get(guild.voice_channels, name=f"Team Blue #{game_id}")
+        orange_channel = get(guild.voice_channels, name=f"Team Orange #{game_id}")
+        lobby_channel = get(guild.voice_channels, name=f"Lobby #{game_id}")
+        general_channel = get(guild.voice_channels, id=1297341396348571669)
+
+
+        for member in blue_channel.members:
+            await member.move_to(lobby_channel)
+        for member in orange_channel.members:
+            await member.move_to(lobby_channel)
+        await blue_channel.delete()
+        await orange_channel.delete()
+        await asyncio.sleep(300)
+
+        for member in lobby_channel.members:
+            await member.move_to(general_channel)
 
     @discord.ui.button(label="Cancel", style=discord.ButtonStyle.red)
     async def cancel(self, interaction: discord.Interaction, button: Button):
