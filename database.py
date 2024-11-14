@@ -164,3 +164,8 @@ async def get_rank_by_game_id(game_id):
                     return rank
                 else:
                     return result
+                
+async def modify_user(discord_id, elo, rank, wins, losses):
+    async with aiosqlite.connect('Main.db') as db:
+        await db.execute("UPDATE users SET elo = ?, rank = ?, wins = ?, losses = ? WHERE discord_id = ?", (elo, rank, wins, losses, discord_id))
+        await db.commit()

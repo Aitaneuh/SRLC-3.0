@@ -538,6 +538,32 @@ async def clear_queue(ctx):
 
 #-------------------------------------------------------------------------------------------------------------------------
 
+@bot.command(name="set-stats")
+async def set_stats(ctx, member: discord.Member = None, elo: int = None, wins: str = None, losses: str = None):
+    if not ctx.author.guild_permissions.administrator:
+        await ctx.send("You are not an admin, only them can use this command.")
+        return
+
+    if member == None or elo == None or wins == None or losses == None:
+        await ctx.send("To use this command you have to use it like that `!set-stats @user elo wins losses`.")
+        return
+    
+    discord_id = member.id
+
+    if elo >= 1800:
+        rank = "S"
+    elif elo <= 1800 and elo >= 1400:
+        rank = "X"
+    elif elo >= 1000 and elo <= 1400:
+        rank = "A"
+    elif elo <= 1000:
+        rank = "B"
+    
+    await modify_user(discord_id, elo, rank, wins, losses)
+
+    await ctx.send(f"User **{member.display_name}** has now an elo of {elo} with a rank of {rank}, {wins} Wins and {losses} Losses.")
+
+#-------------------------------------------------------------------------------------------------------------------------
 
 
 
