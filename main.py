@@ -249,13 +249,17 @@ async def queue(ctx):
 async def leave_queue(ctx):
     game_id = await get_game_by_user(ctx.author.id)
 
-    if game_id == "0":
+    if game_id == 0:
         await ctx.send("You are not in a queue.")
         return
     
     user = await get_user(ctx.author.id)
 
     if user[5] == "ingame":
+        await ctx.send("You can't leave a started game.")
+        return
+
+    if user[5] == "inactive":
         await ctx.send("You can't leave a started game.")
         return
 
@@ -560,6 +564,8 @@ async def set_stats(ctx, member: discord.Member = None, elo: int = None, wins: s
         rank = "B"
     
     await modify_user(discord_id, elo, rank, wins, losses)
+
+    await check_rank_change(ctx, discord_id)
 
     await ctx.send(f"User **{member.display_name}** has now an elo of {elo} with a rank of {rank}, {wins} Wins and {losses} Losses.")
 
