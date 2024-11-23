@@ -202,7 +202,7 @@ async def queue(ctx):
             team_blue_mentions = ", ".join([f"<@{player_id}>" for player_id in team_blue])
             team_orange_mentions = ", ".join([f"<@{player_id}>" for player_id in team_orange])
             
-            await ctx.send(f"# Game {game_id} has been created\n\n## Team Blue\n\n{team_blue_mentions}\n\n## Team Orange\n\n{team_orange_mentions}\n\n# You can now wait until every one is here in the Lobby #{game_id}")
+            await ctx.send(f"# Game {game_id} has been created\n\n## Team Blue\n\n{team_blue_mentions}\n\n## Team Orange\n\n{team_orange_mentions}\n\n#The host is @<{host_id}>\n\n# You can now wait until every one is here in the Lobby #{game_id}")
 
             guild = ctx.guild
             category = ctx.channel.category
@@ -228,18 +228,18 @@ async def queue(ctx):
             overwrite_allow.connect = True 
 
             await lobby_channel.set_permissions(guild.default_role, overwrite=overwrite_deny)
-            for player in players:
-                user = guild.get_member(player.id)
+            for player_id in players:
+                user = guild.get_member(player_id)
                 await lobby_channel.set_permissions(user, overwrite=overwrite_allow)
 
             await team_blue_channel.set_permissions(guild.default_role, overwrite=overwrite_deny)
-            for member in team_blue:
-                user = guild.get_member(member.id)
+            for player_id in team_blue:
+                user = guild.get_member(player_id)
                 await team_blue_channel.set_permissions(user, overwrite=overwrite_allow)
 
             await team_orange_channel.set_permissions(guild.default_role, overwrite=overwrite_deny)
-            for member in team_orange:
-                user = guild.get_member(member.id)
+            for player_id in team_orange:
+                user = guild.get_member(player_id)
                 await team_orange_channel.set_permissions(user, overwrite=overwrite_allow)
 
 
