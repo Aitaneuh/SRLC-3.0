@@ -37,6 +37,15 @@ async def on_ready():
 
 #-------------------------------------------------------------------------------------------------------------------------
 
+async def scheduled_leaderboard_post():
+    await post_leaderboard()
+
+def run_scheduler():
+    schedule.every().day.at("00:00").do(lambda: asyncio.run_coroutine_threadsafe(scheduled_leaderboard_post(), bot.loop))
+
+#-------------------------------------------------------------------------------------------------------------------------
+
+
 @bot.event
 async def on_member_join(member):
 
@@ -49,6 +58,82 @@ async def on_member_join(member):
         await member.add_roles(role)
 
 #-------------------------------------------------------------------------------------------------------------------------
+
+async def post_leaderboard():
+    leaderboard_embed = await leaderboard_elo()
+
+    channel = bot.get_channel(1310353450885841068)
+
+    await channel.purge()
+    await channel.send(embed=leaderboard_embed)
+
+#-------------------------------------------------------------------------------------------------------------------------
+
+async def leaderboard_elo():
+    leaderboard_data = []
+    guild = bot.get_guild(1296208034170667018)
+
+    if not guild:
+        print("Erreur : Impossible de récupérer la guild avec l'ID spécifié.")
+        return None
+
+    async with aiosqlite.connect('Main.db') as db:
+        cursor = await db.execute(
+            "SELECT discord_id, elo, wins, losses FROM users WHERE wins + losses != 0 ORDER BY elo DESC LIMIT 10"
+        )
+        rows = await cursor.fetchall()
+        await cursor.close()
+
+        for row in rows:
+            discord_id, elo, wins, losses = row
+            leaderboard_data.append((discord_id, elo, wins, losses))
+
+    embed = discord.Embed(
+        title="Top 10 ELO Leaderboard",
+        description="This leaderboard is updated every day at midnight.",
+        color=0x951e1e,
+    )
+
+    for rank, (discord_id, elo, wins, losses) in enumerate(leaderboard_data, start=1):
+        winrate = round(wins / losses, 5) if losses > 0 else float(wins)
+        win_per_game = round(wins / (wins + losses), 5) if (wins + losses) > 0 else 0
+
+        user = guild.get_member(int(discord_id))
+
+        embed.add_field(
+            name=f"#{rank} - {user.display_name}",
+            value=(
+                f"Discord Profil: [{user.global_name}](https://discord.com/users/{discord_id})\n"
+                f"ELO: {elo}\n"
+                f"Wins: {wins}\n"
+                f"Losses: {losses}\n"
+                f"Winrate: {winrate}\n"
+                f"Win per Game: {win_per_game}"
+            ),
+            inline=False,
+        )
+
+    embed.set_footer(
+        text="Powered By SRLC", icon_url="https://i.imgur.com/wXI4XOn.png"
+    )
+
+    return embed
+
+
+#-------------------------------------------------------------------------------------------------------------------------
+
+@bot.command(name="update-leaderboard")
+async def update_leaderbord(ctx):
+    if not ctx.author.guild_permissions.administrator:
+        await ctx.send("You are not an admin, only them can use this command.")
+        return
+    
+    await post_leaderboard()
+    embed = discord.Embed(color=0x951e1e, description="The leaderboard has been updated.")
+    await ctx.send(embed=embed)
+
+#-------------------------------------------------------------------------------------------------------------------------
+
 
 @bot.command(name="set-rank")
 async def set_rank(ctx, member: discord.Member = None, rank: str = None):
